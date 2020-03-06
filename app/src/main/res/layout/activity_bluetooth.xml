@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    tools:context=".BluetoothActivity">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Bluetooth Demo"
+        android:textSize="20dp"
+        android:textStyle="bold"
+        android:gravity="center"/>
+
+    <TextView
+        android:id="@+id/txtStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Status: "
+        android:textSize="25dp"/>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:orientation="horizontal"
+        android:layout_height="wrap_content">
+
+        <Button
+            android:id="@+id/btOn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Turn On"
+            android:onClick="clickToTurnOn"/>
+
+        <Button
+            android:id="@+id/btOff"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Turn Off"
+            android:onClick="clickToTurnOff"/>
+
+        <Button
+            android:id="@+id/btVisible"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Get Visible"
+            android:onClick="clickToVisible"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="List Paired Device"
+            android:onClick="clickToListDevices"/>
+
+        <Button
+            android:id="@+id/btSearch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Search New Device/Cancel"
+            android:onClick="clickToSearch"/>
+
+        <ListView
+            android:id="@+id/lstDevices"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btTransfer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Send File"
+        android:onClick="clickToTransfer"/>
+</LinearLayout>
