@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.View;
 import android.webkit.MimeTypeMap;
 import android.widget.AdapterView;
@@ -16,6 +17,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
@@ -54,9 +56,11 @@ public class FileTransferActivity extends AppCompatActivity {
             UUID.fromString("8ce255c0-223a-11e0-ac64-0803450c9a66");
 
     SendReceive sendReceive;
+    ServerClass server;
+    ClientClass client;
 
-    // Dùng Handler để tương tác với Message truyen tu Handler cua
-    // thiec bi nay den Handler cua thiec bi khac.
+    // Dùng Handler để tương tác với Message truyền từ Handler của
+    // thiếc bị này với Handler của thiếc bị khác.
     Handler handler = new Handler(new Handler.Callback() {
         @Override
         public boolean handleMessage(Message msg) {
@@ -66,22 +70,30 @@ public class FileTransferActivity extends AppCompatActivity {
                 case STATE_LISTENING:
                     txtStatus.setText("Listening");
                     break;
+
                 case STATE_CONNECTING:
                     txtStatus.setText("Connecting");
                     break;
+
                 case STATE_CONNECTED:
                     txtStatus.setText("Connected");
                     break;
+
                 case STATE_CONNECTION_FAILED:
                     txtStatus.setText("Connection Failed");
                     break;
+
                 case STATE_MESSAGE_RECEIVED:
+                    // Lấy dữ liệu từ message
                     byte[] readBuff = (byte[]) msg.obj;
                     String tempMsg = new String(readBuff,0, msg.arg1);
 
-                    String[] temp = tempMsg.split("\\*", 1);
+                    // cắt chuỗi để lấy kiểu dữ liệu và nội dung dữ liệu
+                    String[] temp = tempMsg.split("\\*", 2);
                     String type = temp[0];
                     String content = temp[1];
+
+                    // Tạo tên file với dịnh dạng ngày giờ hiện tại + kiểu file
                     String fileName = (new Date()).toString() + "." + type;
 
                     try (FileOutputStream fos =
@@ -117,6 +129,7 @@ public class FileTransferActivity extends AppCompatActivity {
 
         adapter = BluetoothAdapter.getDefaultAdapter();
 
+        // Bật bluetooth nếu bluetooth đang tắt
         if (adapter != null) {
             if (!adapter.isEnabled()) {
                 Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -154,6 +167,7 @@ public class FileTransferActivity extends AppCompatActivity {
                         strings[index] = device.getName();
                         index++;
                     }
+
                     ArrayAdapter<String> arrayAdapter =
                             new ArrayAdapter<>(getApplicationContext(),
                                     android.R.layout.simple_list_item_1, strings);
@@ -162,20 +176,26 @@ public class FileTransferActivity extends AppCompatActivity {
             }
         });
 
+
         btnListen.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                ServerClass serverClass = new ServerClass();
-                serverClass.start();
+                if (server == null) {
+                    server = new ServerClass();
+                    server.start();
+                }
             }
         });
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                ClientClass client = new ClientClass(btArray[position]);
-                client.start();
-                txtStatus.setText("Connecting");
+            public void onItemClick(AdapterView<?> parent, View view,
+                                    int position, long id) {
+                if (client == null) {
+                    client = new ClientClass(btArray[position]);
+                    client.start();
+                    txtStatus.setText("Connecting");
+                }
             }
         });
 
@@ -199,8 +219,6 @@ public class FileTransferActivity extends AppCompatActivity {
         String type = "";
         MimeTypeMap mime = MimeTypeMap.getSingleton();
         type = mime.getExtensionFromMimeType(resolver.getType(u));
-        System.out.println(">>>>> type: " + type);
-        System.out.println(">>>>> resolver: " + resolver.getType(u));
         // With "data.txt" will this will return ".txt"
         // resolver.getType(uri) will return "text/plain"
         return type;
@@ -238,6 +256,7 @@ public class FileTransferActivity extends AppCompatActivity {
         }
     }
 
+    // Class dùng để lắng nghe socket để khởi tạo kết giữa 2 thiếc bị (handshake)
     private class ServerClass extends Thread {
 
         private BluetoothServerSocket serverSocket;
@@ -255,7 +274,7 @@ public class FileTransferActivity extends AppCompatActivity {
         public void run() {
             BluetoothSocket socket = null;
 
-            while (socket == null) {
+            search : while (socket == null) {
                 try {
 
                     Message message = Message.obtain();
@@ -263,11 +282,14 @@ public class FileTransferActivity extends AppCompatActivity {
                     handler.sendMessage(message);
 
                     socket = serverSocket.accept();
+                    System.out.println(socket);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    // Thoát khỏi vòng lập khi kết nối bị time out
+                    Log.d("Exception", e.getMessage());
                     Message message = Message.obtain();
                     message.what = STATE_CONNECTION_FAILED;
                     handler.sendMessage(message);
+                    break search;
                 }
 
                 if(socket != null) {
@@ -275,6 +297,7 @@ public class FileTransferActivity extends AppCompatActivity {
                     message.what = STATE_CONNECTED;
                     handler.sendMessage(message);
 
+                    // Khi socket đã được kết nối, khởi tạo class để gửi/ nhận file
                     sendReceive = new SendReceive(socket);
                     sendReceive.start();
                     break;
@@ -283,6 +306,8 @@ public class FileTransferActivity extends AppCompatActivity {
         }
     }
 
+    // Class dùng để kết nối đến ServerClass(BluetoothServiceSocket)
+    // để hoàn tất handshake
     private class ClientClass extends Thread {
         private BluetoothDevice device;
         private BluetoothSocket socket;
@@ -299,11 +324,14 @@ public class FileTransferActivity extends AppCompatActivity {
 
         public void run() {
             try {
+                // Thực hiện handshake vào socket mà service Device sẽ tạo
                 socket.connect();
                 Message message = Message.obtain();
                 message.what = STATE_CONNECTED;
                 handler.sendMessage(message);
 
+                // Khởi tạo class để gửi nhận InputStream và OutputStream
+                // khi handshake thành công
                 sendReceive = new SendReceive(socket);
                 sendReceive.start();
 
@@ -321,11 +349,14 @@ public class FileTransferActivity extends AppCompatActivity {
         private final InputStream inputStream;
         private final OutputStream outputStream;
 
+        // Khi handshake hoàn tất, SendReceive sẽ xử dụng socket để
         public SendReceive (BluetoothSocket socket) {
             bluetoothSocket = socket;
             InputStream tempIn = null;
             OutputStream tempOut = null;
 
+            // Do các method get có thể quăng Exception
+            // nên tạo biến tạm để nhận cái Input và Output stream
             try {
                 tempIn = bluetoothSocket.getInputStream();
                 tempOut = bluetoothSocket.getOutputStream();
@@ -338,6 +369,7 @@ public class FileTransferActivity extends AppCompatActivity {
         }
 
         public void run() {
+            // Khởi tạo payload capacity
             byte[] buffer = new byte[1024];
             int size;
 
@@ -359,5 +391,19 @@ public class FileTransferActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (server != null) {
+            server.interrupt();
+        }
+        if (client != null) {
+            client.interrupt();
+        }
+        if (sendReceive != null) {
+            sendReceive.interrupt();
+        }
+        super.onDestroy();
     }
 }
