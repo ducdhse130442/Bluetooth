@@ -60,7 +60,7 @@ public class FileTransferActivity extends AppCompatActivity {
     ClientClass client;
 
     // Dùng Handler để tương tác với Message truyền từ Handler của
-    // thiếc bị này với Handler của thiếc bị khác.
+    // thiếc bị này với Handler của thiếc bị khác hoặc giữa chính nó
     Handler handler = new Handler(new Handler.Callback() {
         @Override
         public boolean handleMessage(Message msg) {
